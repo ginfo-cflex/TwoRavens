@@ -2517,7 +2517,7 @@ export async function estimate(btn) {
 
         // 3. And check they come back correctly formed:
         //console.log("pipeline app return (rookpipe)");
-        //console.log(rookpipe);
+        console.log(rookpipe);
 
         if (!rookpipe) {
             estimated = true;
@@ -4471,7 +4471,7 @@ export function record_user_metadata(){
       }
 }
 
-function singlePlot(pred) {
+export function singlePlot(pred) {
     d3.select('#setxLeftTopRight').selectAll('svg').remove();
     let i = findNodeIndex(pred);
     let node = allNodes[i];

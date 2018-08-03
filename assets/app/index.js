@@ -265,7 +265,18 @@ function rightpanel(mode) {
              ),
              m(`#setxLeftGen[style=display:${app.selectedResultsMenu === 'Generate New Predictions' ? 'block' : 'none'}; float: left; width: 75%; height:95%; overflow: auto; background-color: white]`,
                  m('#setxLeftTop[style=display:block; float: left; width: 100%; height:50%; overflow: auto; background-color: white]',
-                     m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]'),
+                     m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]',
+                     m(PanelList, {
+                     id: 'predictorList',
+                     items: valueKey,
+                     colors: {
+                         [app.hexToRgba(common.selVarColor)]: app.nodes.map(n => n.name),
+                         [app.hexToRgba(common.nomColor)]: app.zparams.znom
+                     },
+                     classes: {'item-bordered': app.matchedVariables},
+                     callback: x => app.singlePlot(x),
+                     popup: variable => app.popoverContent(app.findNodeIndex(variable, true)),
+                     attrsItems: {'data-placement': 'right', 'data-original-title': 'Summary Statistics'}})),
                      m('#setxLeftTopRight[style=display:block; float: left; width: 70%; height:100%; overflow: auto; background-color: white]')),
                  m('#setxLeftBottomLeft[style=display:block; float: left; width: 70%; height:50%; overflow: auto; background-color: white]'),
                  m('#setxLeftBottomRightTop[style=display:block; float: left; width: 30%; height:10%; overflow: auto; background-color: white]',
