@@ -510,12 +510,13 @@ class Body {
                               }, glyph(app.locktoggle ? 'lock' : 'pencil', true)),
                               spaceBtn('btnAdd', async function() {
                                   let rookpipe = await app.makeRequest(ROOK_SVC_URL + 'pipelineapp', app.zparams);
-                                  rookpipe.target = rookpipe.depvar[0];;
+                                  rookpipe.target = rookpipe.depvar[0];
                                   let {taskType, performanceMetrics} = app.d3mProblemDescription;
                                   rookpipe.task = taskType;
                                   rookpipe.metric = performanceMetrics[0].metric;
                                   app.disco.push(rookpipe);
                                   app.setLeftTab('Discovery');
+                                  app.setSelectedProblem(app.disco.length - 1);
                                   m.redraw();
                               }, 'Add model to problems.', 'plus'),
                               spaceBtn('btnJoin', _ => {
