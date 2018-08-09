@@ -4476,19 +4476,22 @@ export function record_user_metadata(){
       }
 }
 
+export let selectedNodePipeline;
+
 export function singlePlot(pred) {
     d3.select('#setxLeftTopRight').selectAll('svg').remove();
     let i = findNodeIndex(pred);
     let node = allNodes[i];
     node.setxplot = false;
-        node.subsetplot = false;
-        if (node.plottype === "continuous" & node.setxplot == false) {
-            node.setxplot = true;
-            density(node, div = "setxLeftTopRight", priv);
-        } else if (node.plottype === "bar" & node.setxplot == false) {
-            node.setxplot = true;
-            bars(node, div = "setxLeftTopRight", priv);
-        }
+    node.subsetplot = false;
+    if (node.plottype === "continuous" & node.setxplot == false) {
+        node.setxplot = true;
+        density(node, div = "setxLeftTopRight", priv);
+    } else if (node.plottype === "bar" & node.setxplot == false) {
+        node.setxplot = true;
+        bars(node, div = "setxLeftTopRight", priv);
+    }
+    selectedNodePipeline = node.name;
 }
 
 export function discovery(preprocess_file) {

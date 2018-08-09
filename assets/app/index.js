@@ -302,8 +302,7 @@ function rightpanel(mode) {
                        id: 'predictorList',
                        items: state.rookpipe.predictors,
                        colors: {
-                           [app.hexToRgba(common.selVarColor)]: app.nodes.map(n => n.name),
-                           [app.hexToRgba(common.nomColor)]: app.zparams.znom
+                           [app.hexToRgba(common.selVarColor)]: [app.selectedNodePipeline],
                        },
                        classes: {'item-bordered': app.matchedVariables},
                        callback: x => app.singlePlot(x),
