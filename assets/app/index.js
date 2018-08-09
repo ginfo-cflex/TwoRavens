@@ -242,7 +242,6 @@ function rightpanel(mode) {
         ]
     }
 
-    
     let sections = [
         // {value: 'Models',
         //  display: app.IS_D3M_DOMAIN ? 'block' : 'none',
@@ -258,9 +257,12 @@ function rightpanel(mode) {
          display: !app.swandive || app.IS_D3M_DOMAIN ? 'block' : 'none',
          idSuffix: 'Setx',
          contents: [
-<<<<<<< HEAD
-             m('#setxRight[style=display:block; float: right; width: 25%; background-color: white]',
-               app.pipelineTable && m(Table, {
+             m('#setxRight[style=float: right; width: 30%; height: 100%; overflow:auto]',
+               app.selectedPipeline && [
+                   bold('Score Metric: '), app.d3mProblemDescription.performanceMetrics[0].metric, m('br'),
+                   app.resultsMetricDescription
+               ],
+               app.pipelineTable.length !== 0 && m(Table, {
                    id: 'pipelineTable',
                    headers: app.pipelineHeader,
                    data: app.pipelineTable,
@@ -269,28 +271,12 @@ function rightpanel(mode) {
                        app.setSelectedPipeline(x);
                        state.getRookpipe();
                    },
-                   abbreviation: 20
+                   abbreviation: 20,
+                   tableTags: m('colgroup',
+                                m('col', {span: 1}),
+                                m('col', {span: 1, width: '30%'}))
                })),
-
-=======
-             m('#setxRight[style=float: right; width: 30%; height: 100%; overflow:auto]',
-                 app.selectedPipeline && [
-                     bold('Score Metric: '), app.d3mProblemDescription.performanceMetrics[0].metric, m('br'),
-                     app.resultsMetricDescription
-                 ],
-                 app.pipelineTable.length !== 0 && m(Table, {
-                     id: 'pipelineTable',
-                     headers: app.pipelineHeader,
-                     data: app.pipelineTable,
-                     activeRow: app.selectedPipeline,
-                     onclick: app.setSelectedPipeline,
-                     abbreviation: 20,
-                     tableTags: m('colgroup',
-                         m('col', {span: 1}),
-                         m('col', {span: 1, width: '30%'}))
-                 })),
              app.pipelineTable.length === 0 && "Use 'Solve This Problem' to create a list of pipelines. ",
->>>>>>> 9206369841414bd7f4e2c8837e6748442706d626
              app.selectedPipeline === undefined && 'Click a pipeline to explore results.',
 
              app.selectedPipeline && m(ButtonRadio, {
@@ -306,40 +292,40 @@ function rightpanel(mode) {
                  ]
              }),
              m(`div#predictionSummary[style=display:${app.selectedResultsMenu === 'Prediction Summary' ? 'block' : 'none'};height:calc(100% - 30px); overflow: auto; width: 70%]`,
-                 m('#setxLeftPlot[style=float:left; background-color:white; overflow:auto;]'),
-                 m('#setxLeft[style=display:none; float: left; overflow: auto; background-color: white]'),
-             ),
+               m('#setxLeftPlot[style=float:left; background-color:white; overflow:auto;]'),
+               m('#setxLeft[style=display:none; float: left; overflow: auto; background-color: white]'),
+              ),
              m(`#setxLeftGen[style=display:${app.selectedResultsMenu === 'Generate New Predictions' ? 'block' : 'none'}; float: left; width: 70%; height:calc(100% - 30px); overflow: auto; background-color: white]`,
-                 m('#setxLeftTop[style=display:block; float: left; width: 100%; height:50%; overflow: auto; background-color: white]',
-                     m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]',
-                     m(PanelList, {
-                     id: 'predictorList',
-                         items: state.rookpipe.predictors,
-                     colors: {
-                         [app.hexToRgba(common.selVarColor)]: app.nodes.map(n => n.name),
-                         [app.hexToRgba(common.nomColor)]: app.zparams.znom
-                     },
-                     classes: {'item-bordered': app.matchedVariables},
-                     callback: x => app.singlePlot(x),
-                     popup: variable => app.popoverContent(app.findNodeIndex(variable, true)),
-                     attrsItems: {'data-placement': 'right', 'data-original-title': 'Summary Statistics'}})),
-                     m('#setxLeftTopRight[style=display:block; float: left; width: 70%; height:100%; overflow: auto; background-color: white]')),
-                 m('#setxLeftBottomLeft[style=display:block; float: left; width: 70%; height:50%; overflow: auto; background-color: white]'),
-                 m('#setxLeftBottomRightTop[style=display:block; float: left; width: 30%; height:10%; overflow: auto; background-color: white]',
-                     m(Button, {
-                         id: 'btnExecutePipe',
-                         classes: 'btn-default.ladda-button[data-spinner-color=#000000][data-style=zoom-in]',
-                         onclick: app.executepipeline,
-                         style: {
-                             display: app.selectedPipeline === undefined ? 'none' : 'block',
-                             float: 'left',
-                             'margin-right': '10px'
-                         },
-                         title: 'Execute pipeline'
-                     }, m('span.ladda-label[style=pointer-events: none]', 'Execute Generation'))),
-                 m('#setxLeftBottomRightBottom[style=display:block; float: left; width: 30%; height:40%; overflow: auto; background-color: white]')),
-             app.selectedResultsMenu === 'Visualize Pipeline' && app.selectedPipeline in app.allPipelineInfo && m('div', {
+               m('#setxLeftTop[style=display:block; float: left; width: 100%; height:50%; overflow: auto; background-color: white]',
+                 m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]',
+                   m(PanelList, {
+                       id: 'predictorList',
+                       items: state.rookpipe.predictors,
+                       colors: {
+                           [app.hexToRgba(common.selVarColor)]: app.nodes.map(n => n.name),
+                           [app.hexToRgba(common.nomColor)]: app.zparams.znom
+                       },
+                       classes: {'item-bordered': app.matchedVariables},
+                       callback: x => app.singlePlot(x),
+                       popup: variable => app.popoverContent(app.findNodeIndex(variable, true)),
+                       attrsItems: {'data-placement': 'right', 'data-original-title': 'Summary Statistics'}})),
+                 m('#setxLeftTopRight[style=display:block; float: left; width: 70%; height:100%; overflow: auto; background-color: white]')),
+               m('#setxLeftBottomLeft[style=display:block; float: left; width: 70%; height:50%; overflow: auto; background-color: white]'),
+               m('#setxLeftBottomRightTop[style=display:block; float: left; width: 30%; height:10%; overflow: auto; background-color: white]',
+                 m(Button, {
+                     id: 'btnExecutePipe',
+                     classes: 'btn-default.ladda-button[data-spinner-color=#000000][data-style=zoom-in]',
+                     onclick: app.executepipeline,
                      style: {
+                         display: app.selectedPipeline === undefined ? 'none' : 'block',
+                         float: 'left',
+                         'margin-right': '10px'
+                     },
+                     title: 'Execute pipeline'
+                 }, m('span.ladda-label[style=pointer-events: none]', 'Execute Generation'))),
+               m('#setxLeftBottomRightBottom[style=display:block; float: left; width: 30%; height:40%; overflow: auto; background-color: white]')),
+             app.selectedResultsMenu === 'Visualize Pipeline' && app.selectedPipeline in app.allPipelineInfo && m('div', {
+                 style: {
                          width: '70%',
                          height: 'calc(100% - 30px)',
                          overflow: 'auto'
