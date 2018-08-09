@@ -30,6 +30,10 @@ import Table from '../common/app/views/Table';
 import TextField from '../common/app/views/TextField';
 import TableJSON from './views/TableJSON';
 
+let bold = (value) => m('div', {style: {'font-weight': 'bold', display: 'inline'}}, value);
+let italicize = (value) => m('div', {style: {'font-style': 'italic', display: 'inline'}}, value);
+let link = (url) => m('a', {href: url, style: {color: 'darkblue'}, target: '_blank', display: 'inline'}, url);
+
 let state = {
     pipelines: [],
     async get_pipelines() {
@@ -59,14 +63,28 @@ function leftpanel(mode) {
         return results.leftpanel(Object.keys(app.allPipelineInfo));
     }
 
+    let selectedDisco = app.disco.find(problem => problem.problem_id === app.selectedProblem);
+
     let discoveryAllCheck = m('input#discoveryAllCheck[type=checkbox]', {
         onclick: m.withAttr("checked", (checked) => app.setCheckedDiscoveryProblem(checked)),
-        checked: app.probtable.length === app.checkedDiscoveryProblems.size
+        checked: app.disco.length === app.checkedDiscoveryProblems.size,
+        title: `mark ${app.disco.length === app.checkedDiscoveryProblems.size ? 'no' : 'all'} problems as meaningful`
     });
-    let discoveryTableData = app.probtable.map((problem) => [...problem, m('input[type=checkbox]', {
-        onclick: m.withAttr("checked", (checked) => app.setCheckedDiscoveryProblem(checked, problem[0])),
-        checked: app.checkedDiscoveryProblems.has(problem[0])
-    })]);
+
+    let discoveryTableData = app.disco.map(problem => [
+        problem.problem_id, // this is masked as the UID
+        m('input[type=checkbox]', {
+            onclick: m.withAttr("checked", (checked) => app.setCheckedDiscoveryProblem(checked, problem.problem_id)),
+            checked: app.checkedDiscoveryProblems.has(problem.problem_id),
+            title: 'mark this problem as meaningful'
+        }),
+        problem.target,
+        problem.predictors.join(', '),
+        problem.task,
+        problem.metric,
+        !!problem.subsetObs && problem.subsetObs,
+        !!problem.transform && problem.transform
+    ]);
 
     let nodes = exploreMode ? nodesExplore : app.nodes;
 
@@ -107,7 +125,7 @@ function leftpanel(mode) {
              contents: [
                  m(Table, {
                      id: 'discoveryTable',
-                     headers: ['Hidden_UID', 'Target', 'Predictors', 'Task', 'Metric', discoveryAllCheck],
+                     headers: ['problem_id', discoveryAllCheck, 'Target', 'Predictors', 'Task', 'Metric', 'Subset', 'Transform'],
                      data: discoveryTableData,
                      activeRow: app.selectedProblem,
                      onclick: app.setSelectedProblem,
@@ -117,16 +135,15 @@ function leftpanel(mode) {
                          style: {height: '80%', overflow: 'auto', display: 'block', 'margin-right': '16px', 'margin-bottom': 0, 'max-width': (window.innerWidth - 90) + 'px'}}
                  }),
                  m('textarea#discoveryInput[style=display:block; float: left; width: 100%; height:calc(20% - 35px); overflow: auto; background-color: white]', {
-                     value: app.selectedProblem === undefined ? '' : app.disco[app.selectedProblem].description
+                     value: selectedDisco === undefined ? '' : selectedDisco.description
                  }),
-                 m(Button, {id: 'btnSave', onclick: _ => app.saveDisc('btnSave'),title: 'Saves your revised problem description.'}, 'Save Desc.'),
-                 m(Button, {id: 'btnSubmitDisc', classes: 'btn-success', style: 'float: right', onclick: _ => app.submitDiscProb(), title: 'Submit all checked discovered problems.'}, 'Submit Disc. Probs.'),
+                 m(Button, {id: 'btnSave', onclick: app.saveDisc, title: 'Saves your revised problem description.'}, 'Save Desc.'),
+                 m(Button, {id: 'btnSubmitDisc', classes: 'btn-success', style: 'float: right', onclick: app.submitDiscProb, title: 'Submit all checked discovered problems.'}, 'Submit Disc. Probs.'),
                  m(Button, {id: 'btnModelProblem', classes: 'btn-default', style: 'float: right', onclick: _ => {
                      m.route.set('/model');
                      setTimeout(_ => {
-                         let prob = app.disco[app.selectedProblem];
-                         if (prob) {
-                             let {target, predictors} = prob;
+                         if (selectedDisco) {
+                             let {target, predictors} = selectedDisco;
                              app.erase('Discovery');
                              [target].concat(predictors).map(x => app.clickVar(x));
                              predictors.forEach(x => {
@@ -241,6 +258,7 @@ function rightpanel(mode) {
          display: !app.swandive || app.IS_D3M_DOMAIN ? 'block' : 'none',
          idSuffix: 'Setx',
          contents: [
+<<<<<<< HEAD
              m('#setxRight[style=display:block; float: right; width: 25%; background-color: white]',
                app.pipelineTable && m(Table, {
                    id: 'pipelineTable',
@@ -254,6 +272,25 @@ function rightpanel(mode) {
                    abbreviation: 20
                })),
 
+=======
+             m('#setxRight[style=float: right; width: 30%; height: 100%; overflow:auto]',
+                 app.selectedPipeline && [
+                     bold('Score Metric: '), app.d3mProblemDescription.performanceMetrics[0].metric, m('br'),
+                     app.resultsMetricDescription
+                 ],
+                 app.pipelineTable.length !== 0 && m(Table, {
+                     id: 'pipelineTable',
+                     headers: app.pipelineHeader,
+                     data: app.pipelineTable,
+                     activeRow: app.selectedPipeline,
+                     onclick: app.setSelectedPipeline,
+                     abbreviation: 20,
+                     tableTags: m('colgroup',
+                         m('col', {span: 1}),
+                         m('col', {span: 1, width: '30%'}))
+                 })),
+             app.pipelineTable.length === 0 && "Use 'Solve This Problem' to create a list of pipelines. ",
+>>>>>>> 9206369841414bd7f4e2c8837e6748442706d626
              app.selectedPipeline === undefined && 'Click a pipeline to explore results.',
 
              app.selectedPipeline && m(ButtonRadio, {
@@ -268,11 +305,11 @@ function rightpanel(mode) {
                      {value: 'Visualize Pipeline', id: 'btnVisPipe'}
                  ]
              }),
-             m(`div#predictionSummary[style=display:${app.selectedResultsMenu === 'Prediction Summary' ? 'block' : 'none'}]`,
-                 m('#setxLeftPlot[style=display:block; float: left; width: 75%; height:95%; overflow: auto; background-color: white]'),
-                 m('#setxLeft[style=display:none; float: left; width: 75%; height:95%; overflow: auto; background-color: white]'),
+             m(`div#predictionSummary[style=display:${app.selectedResultsMenu === 'Prediction Summary' ? 'block' : 'none'};height:calc(100% - 30px); overflow: auto; width: 70%]`,
+                 m('#setxLeftPlot[style=float:left; background-color:white; overflow:auto;]'),
+                 m('#setxLeft[style=display:none; float: left; overflow: auto; background-color: white]'),
              ),
-             m(`#setxLeftGen[style=display:${app.selectedResultsMenu === 'Generate New Predictions' ? 'block' : 'none'}; float: left; width: 75%; height:95%; overflow: auto; background-color: white]`,
+             m(`#setxLeftGen[style=display:${app.selectedResultsMenu === 'Generate New Predictions' ? 'block' : 'none'}; float: left; width: 70%; height:calc(100% - 30px); overflow: auto; background-color: white]`,
                  m('#setxLeftTop[style=display:block; float: left; width: 100%; height:50%; overflow: auto; background-color: white]',
                      m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]',
                      m(PanelList, {
@@ -303,7 +340,7 @@ function rightpanel(mode) {
                  m('#setxLeftBottomRightBottom[style=display:block; float: left; width: 30%; height:40%; overflow: auto; background-color: white]')),
              app.selectedResultsMenu === 'Visualize Pipeline' && app.selectedPipeline in app.allPipelineInfo && m('div', {
                      style: {
-                         width: '75%',
+                         width: '70%',
                          height: 'calc(100% - 30px)',
                          overflow: 'auto'
                      }
@@ -413,9 +450,10 @@ class Body {
                 let node = app.findNode(x);
                 node && expnodes.push(node);
             });
-            if (variate=="problem") {
+            if (variate==="problem") {
+                let problem = app.disco.find(problem => problem.problem_id === app.selectedProblem);
                 return m('', [
-                m('#plot', {style: 'display: block', oncreate: _ => exp.plot([],"",app.disco[app.selectedProblem])})
+                m('#plot', {style: 'display: block', oncreate: _ => exp.plot([],"",problem)})
                 ]);
             }
             if (!expnodes[0] && !expnodes[1]) {
@@ -495,6 +533,7 @@ class Body {
         let spaceBtn = (id, onclick, title, icon) =>
             m(`button#${id}.btn.btn-default`, {onclick, title}, glyph(icon, true));
         let discovery = app.leftTab === 'Discovery';
+
         return m('main', [
             m(Modal),
             this.header(mode),
@@ -541,7 +580,7 @@ class Body {
                         m('br'),
                         m('', {style: 'display: flex; flex-direction: row; flex-wrap: wrap'},
                           (discovery ? app.disco : valueKey).map((x, i) => {
-                              let selected = discovery ? x === app.disco[app.selectedProblem] : nodesExplore.map(x => x.name).includes(x);
+                              let selected = discovery ? x.problem_id === app.selectedProblem : nodesExplore.map(x => x.name).includes(x);
                               let {predictors} = x;
                               if (x.predictors) {
                                   x = x.target;
@@ -614,12 +653,23 @@ class Body {
                                   title: 'Lock selection of problem description'
                               }, glyph(app.locktoggle ? 'lock' : 'pencil', true)),
                               spaceBtn('btnAdd', async function() {
+                                  app.zPop();
                                   let rookpipe = await app.makeRequest(ROOK_SVC_URL + 'pipelineapp', app.zparams);
                                   rookpipe.target = rookpipe.depvar[0];;
                                   let {taskType, performanceMetrics} = app.d3mProblemDescription;
                                   rookpipe.task = taskType;
                                   rookpipe.metric = performanceMetrics[0].metric;
+                                  rookpipe.meaningful = "yes";
+                                  rookpipe.subsetObs = 0;
+                                  rookpipe.subsetFeats = 0;
+                                  rookpipe.transform = 0;
+                                  rookpipe.system = "user";
+                                  let problemId = app.disco.length + 1;
+                                  rookpipe.problem_id = "problem" + problemId;
+                                  console.log("pushing this:");
+                                  console.log(rookpipe);
                                   app.disco.push(rookpipe);
+                                  console.log(app.disco);
                                   app.setLeftTab('Discovery');
                                   m.redraw();
                               }, 'Add model to problems.', 'plus'),
