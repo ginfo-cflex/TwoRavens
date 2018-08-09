@@ -35,6 +35,11 @@ let state = {
     async get_pipelines() {
         this.pipelines = await app.listpipelines();
         m.redraw();
+    },
+    rookpipe: {predictors: []},
+    async getRookpipe() {
+        this.rookpipe = await app.makeRequest(ROOK_SVC_URL + 'pipelineapp', app.zparams);
+        m.redraw();
     }
 };
 
@@ -220,6 +225,7 @@ function rightpanel(mode) {
         ]
     }
 
+    
     let sections = [
         // {value: 'Models',
         //  display: app.IS_D3M_DOMAIN ? 'block' : 'none',
@@ -241,7 +247,10 @@ function rightpanel(mode) {
                    headers: app.pipelineHeader,
                    data: app.pipelineTable,
                    activeRow: app.selectedPipeline,
-                   onclick: app.setSelectedPipeline,
+                   onclick: async function(x) {
+                       app.setSelectedPipeline(x);
+                       state.getRookpipe();
+                   },
                    abbreviation: 20
                })),
 
@@ -268,7 +277,7 @@ function rightpanel(mode) {
                      m('#setxLeftTopLeft[style=display:block; float: left; width: 30%; height:100%; overflow: auto; background-color: white]',
                      m(PanelList, {
                      id: 'predictorList',
-                     items: valueKey,
+                         items: state.rookpipe.predictors,
                      colors: {
                          [app.hexToRgba(common.selVarColor)]: app.nodes.map(n => n.name),
                          [app.hexToRgba(common.nomColor)]: app.zparams.znom
