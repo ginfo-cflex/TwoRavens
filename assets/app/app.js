@@ -4967,3 +4967,16 @@ function primitiveStepRemoveColumns (aux) {
     let step = {primitive:primitive, arguments:parguments, outputs:outputs, hyperparams:hyperparams, users:users};
     return {primitive:step};
 }
+
+
+// takes as input problem in the form of a "discovered problem" (can also be user-defined), calls rooksolver, and returns result
+export async function callSolver (prob) {
+    let temp = JSON.stringify(prob);
+    console.log(temp);
+    let zd3mdata = zparams.zd3mdata;
+    let jsonout = {prob, zd3mdata};
+    let json = await makeRequest(ROOK_SVC_URL + 'solverapp', jsonout);
+    console.log(json);
+}
+
+

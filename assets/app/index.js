@@ -149,6 +149,7 @@ function leftpanel(mode) {
                              app.setColors(d, app.dvColor);
                              app.legend();
                              d.group1 = d.group2 = false;
+                             app.callSolver(selectedDisco);
                              app.restart();
                          }
                      }, 500);
