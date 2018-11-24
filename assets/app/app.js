@@ -1012,6 +1012,7 @@ export function loadResult(my_disco) {
             "description": problem,
             "result": solver_res[i]
         });
+        // console.log("problem to be sent ", problem_sent);
     })
 
     // console.log("problem to be sent ", problem_sent.splice())
@@ -5093,6 +5094,7 @@ function primitiveStepRemoveColumns (aux) {
     return {primitive:step};
 }
 
+// API call to add problem to preproces file
 export async function addProblem(preprocess_id, version){
     // return await m.request({
     //     method: "POST",
@@ -5103,7 +5105,7 @@ export async function addProblem(preprocess_id, version){
     //         "problems": problem_sent
     //     }
     // })
-problem_sent.length = 0;
+    problem_sent.length = 0;
 }
 
 
@@ -5123,6 +5125,7 @@ export async function callSolver (prob) {
     }
 
     let jsonout = {prob, zd3mdata};
+    console.log(" r request : ", jsonout);
     let json = await makeRequest(ROOK_SVC_URL + 'solverapp', jsonout);
     var promise1 = Promise.resolve(json);
 
