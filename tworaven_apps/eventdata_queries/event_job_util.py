@@ -548,16 +548,17 @@ class EventJobUtil(object):
             os.makedirs(folderpath)
 
         extension = 1
-        while os.path.exists(os.path.join(folderpath, 'learningData' + str(extension) + '.csv')):
+        while os.path.exists(os.path.join(folderpath, 'learningData' + str(extension) + '.tsv')):
             extension += 1
-        filepath = os.path.join(folderpath, 'learningData' + str(extension) + '.csv')
+        filepath = os.path.join(folderpath, 'learningData' + str(extension) + '.tsv')
 
         with open(filepath, 'w') as outfile:
             writer = csv.writer(outfile, delimiter='\t')
-            columns = [quote(header) for header in data[0]]
+            columns = list(data[0].keys())
 
             writer.writerow(columns)
             for document in data:
+
                 writer.writerow([quote(document[key]) if key in document else '' for key in columns])
 
         return ok_resp(filepath)
