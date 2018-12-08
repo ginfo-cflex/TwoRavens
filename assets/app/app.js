@@ -4765,6 +4765,7 @@ export function modelSelectionResults(problem){
 }
 
 export function makeDataDiscovery(){
+    console.log("make discovery")
     d3.select("#setPredictionDataLeft").html("");
     d3.select("#setPredictionDataLeft").select("svg").remove();
     let in_data = [
@@ -4820,7 +4821,15 @@ export function makeDiscoverySolutionPlot(){
   let mytitle = "Predicted V Actuals: Pipeline ";
   let dvvalues = solver_res[0]['predictor_values']['actualvalues']
   let predvals = solver_res[0]['predictor_values']['fittedvalues']
+  let task = solver_res[0]['task']
+  if(task == "regression"){
+      console.log("scatter")
   scatter(dvvalues, predvals, xdata, ydata, undefined, undefined, mytitle);
+  }
+  else{
+      console.log("confusion matrix")
+    genconfdata(dvvalues,predvals);
+  }
 
 }
 export function makeDataDiscoveryTable(){
