@@ -40,6 +40,13 @@ import Subpanel2 from '../common/views/Subpanel';
 // EVENTDATA
 import Body_EventData from './eventdata/Body_EventData';
 import ConfusionMatrix from "./views/ConfusionMatrix";
+import ForceDiagram from "./views/ForceDiagram";
+import {gr1Color} from "./app";
+import {gr2Color} from "./app";
+import {nodes} from "./app";
+import {selVarColor} from "./plots";
+import {valueKey} from "./app";
+import {preprocess} from "./app";
 
 export let bold = (value) => m('div', {style: {'font-weight': 'bold', display: 'inline'}}, value);
 export let italicize = (value) => m('div', {style: {'font-style': 'italic', display: 'inline'}}, value);
@@ -86,7 +93,7 @@ function leftpanel(mode) {
             title: `mark ${problem.problem_id} as meaningful`
         }),
         problem.system === 'user' && m('div[title="user created problem"]', glyph('user')),
-        problem.target,
+        problem.target.join(', '),
         problem.predictors.join(', '),
         problem.model === 'modelUndefined' ? '' : problem.model,
         problem.task,
@@ -997,27 +1004,27 @@ class Body {
                 ]),
                 app.currentMode !== 'manipulate' && m(Subpanel, {title: "History"}),
 
-                ['zgroup1', 'zgroup2', 'ztime', 'zcross', 'zdv', 'znom'].reduce((acc, elem) => acc + app.zparams[elem].length, 0) > 0 && m(Subpanel2, {
-                    id: 'legend', header: 'Legend', class: 'legend',
-                    style: {
-                        right: app.panelWidth['right'],
-                        bottom: `calc(2*${common.panelMargin} + ${app.peekInlineShown ? app.peekInlineHeight + ' + 23px' : '0px'})`,
-                        position: 'absolute',
-                        width: '150px'
-                    }
-                }, [
-                    ['timeButton', 'ztime', 'Time', app.dvColor, 'white', 1],
-                    ['csButton', 'zcross', 'Cross Sec', app.csColor, 'white', 1],
-                    ['dvButton', 'zdv', 'Dep Var', app.timeColor, 'white', 1],
-                    ['nomButton', 'znom', 'Nom Var', app.nomColor, 'white', 1],
-                    ['gr1Button', 'zgroup1', 'Group 1', app.gr1Color, app.gr1Color, 0],
-                    ['gr2Button', 'zgroup2', 'Group 2', app.gr2Color, app.gr2Color, 0]
-                ].map(btn =>
-                    m(`#${btn[0]}.${app.zparams[btn[1]].length === 0 ? "hide" : "show"}[style=width:100% !important]`,
-                        m(".rectColor[style=display:inline-block]", m("svg[style=width: 20px; height: 20px]",
-                            m(`circle[cx=10][cy=10][fill=${btn[4]}][fill-opacity=0.6][r=9][stroke=${btn[3]}][stroke-opacity=${btn[5]}][stroke-width=2]`))),
-                        m(".rectLabel[style=display:inline-block;vertical-align:text-bottom;margin-left:.5em]", btn[2])))
-                ),
+                // ['zgroup1', 'zgroup2', 'ztime', 'zcross', 'zdv', 'znom'].reduce((acc, elem) => acc + app.zparams[elem].length, 0) > 0 && m(Subpanel2, {
+                //     id: 'legend', header: 'Legend', class: 'legend',
+                //     style: {
+                //         right: app.panelWidth['right'],
+                //         bottom: `calc(2*${common.panelMargin} + ${app.peekInlineShown ? app.peekInlineHeight + ' + 23px' : '0px'})`,
+                //         position: 'absolute',
+                //         width: '150px'
+                //     }
+                // }, [
+                //     ['timeButton', 'ztime', 'Time', app.dvColor, 'white', 1],
+                //     ['csButton', 'zcross', 'Cross Sec', app.csColor, 'white', 1],
+                //     ['dvButton', 'zdv', 'Dep Var', app.timeColor, 'white', 1],
+                //     ['nomButton', 'znom', 'Nom Var', app.nomColor, 'white', 1],
+                //     ['gr1Button', 'zgroup1', 'Group 1', app.gr1Color, app.gr1Color, 0],
+                //     ['gr2Button', 'zgroup2', 'Group 2', app.gr2Color, app.gr2Color, 0]
+                // ].map(btn =>
+                //     m(`#${btn[0]}.${app.zparams[btn[1]].length === 0 ? "hide" : "show"}[style=width:100% !important]`,
+                //         m(".rectColor[style=display:inline-block]", m("svg[style=width: 20px; height: 20px]",
+                //             m(`circle[cx=10][cy=10][fill=${btn[4]}][fill-opacity=0.6][r=9][stroke=${btn[3]}][stroke-opacity=${btn[5]}][stroke-width=2]`))),
+                //         m(".rectLabel[style=display:inline-block;vertical-align:text-bottom;margin-left:.5em]", btn[2])))
+                // ),
 
                 (app.manipulations[(app.selectedProblem || {}).problem_id] || []).filter(step => step.type === 'subset').length !== 0 && m(Subpanel2, {
                     id: 'subsetSubpanel',
@@ -1197,6 +1204,34 @@ class Body {
 }
 
 
+let myNodes = [];
+let colors = d3.scale.category20();
+
+m.request('rook-custom/rook-files/185_baseball/preprocess/preprocess.json').then(data => {
+
+    myNodes = Object.keys(data.variables).map((variable, i) => Object.assign({
+        id: i,
+        reflexive: false,
+        name: variable,
+        labl: 'test',
+        data: [5, 15, 20, 0, 5, 15, 20],
+        count: [.6, .2, .9, .8, .1, .3, .4],  // temporary values for hold that correspond to histogram bins
+        nodeCol: colors(i),
+        baseCol: colors(i),
+        strokeColor: selVarColor,
+        strokeWidth: "1",
+        subsetplot: false,
+        subsetrange: ["", ""],
+        setxplot: false,
+        setxvals: ["", ""],
+        grayout: false,
+        group1: false,
+        group2: false,
+        forefront: false
+    }, data.variables[variable]))
+});
+
+
 if (IS_EVENTDATA_DOMAIN) {
     m.route(document.body, '/home', {
         '/data': {render: () => m(Peek, {id: 'eventdata', image: '/static/images/TwoRavens.png'})},
@@ -1206,6 +1241,42 @@ if (IS_EVENTDATA_DOMAIN) {
 else {
     m.route(document.body, '/model', {
         '/explore/:variate/:vars...': Body,
+        '/model': {
+            render: () => m('div', {style: {width: '100%', height: '500px'}}, m(ForceDiagram, {
+                selectedNode: undefined,
+                groups: [
+                    {
+                        name: "Predictors",
+                        color: gr1Color,
+                        nodes: []
+                    },
+                    {
+                        name: "Targets",
+                        color: gr2Color,
+                        nodes: []
+                    }
+                ],
+
+                nodes: myNodes,
+
+                groupLinks: [
+                    {
+                        source: 'Predictors',
+                        target: 'Targets',
+                        left: false,
+                        right: true
+                    }
+                ],
+                nodeLinks: [
+                    // {
+                    //     source: '',
+                    //     target: ,
+                    //     left: false,
+                    //     right: true
+                    // }
+                ]
+            }))
+        },
         '/data': {render: () => m(Peek, {id: app.peekId, image: '/static/images/TwoRavens.png'})},
         '/:mode': Body,
 
