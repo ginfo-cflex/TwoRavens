@@ -43,10 +43,6 @@ import ConfusionMatrix from "./views/ConfusionMatrix";
 import ForceDiagram from "./views/ForceDiagram";
 import {gr1Color} from "./app";
 import {gr2Color} from "./app";
-import {nodes} from "./app";
-import {selVarColor} from "./plots";
-import {valueKey} from "./app";
-import {preprocess} from "./app";
 
 export let bold = (value) => m('div', {style: {'font-weight': 'bold', display: 'inline'}}, value);
 export let italicize = (value) => m('div', {style: {'font-style': 'italic', display: 'inline'}}, value);
@@ -994,12 +990,56 @@ class Body {
                                     );
                                 }))
                         )],
-                    m('svg#whitespace')),
+
+                    m(ForceDiagram, Object.assign({}, app.forceDiagramEvents, {
+                        selectedNode: undefined,
+
+                        groups: [
+                            {
+                                name: "Predictors",
+                                color: gr1Color,
+                                nodes: []
+                            },
+                            {
+                                name: "Targets",
+                                color: gr2Color,
+                                nodes: []
+                            }
+                        ],
+
+                        nodes: app.nodes,
+
+                        groupLinks: [
+                            {
+                                source: 'Predictors',
+                                target: 'Targets',
+                                left: false,
+                                right: true
+                            }
+                        ],
+                        nodeLinks: [
+                            // {
+                            //     source: '',
+                            //     target: ,
+                            //     left: false,
+                            //     right: true
+                            // }
+                        ],
+
+                        forcetoggle: app.forcetoggle
+                    }))
+                ),
+                    // m('svg#whitespace')),
                 app.is_model_mode && m("#spacetools.spaceTool", {style: {right: app.panelWidth.right, 'z-index': 16}}, [
                     spaceBtn('btnAdd', app.addProblemFromForceDiagram, 'add model to problems', 'plus'),
                     spaceBtn('btnJoin', app.connectAllForceDiagram, 'Make all possible connections between nodes', 'link'),
                     spaceBtn('btnDisconnect', () => app.restart([]), 'Delete all connections between nodes', 'remove-circle'),
-                    spaceBtn('btnForce', app.forceSwitch, 'Pin the variable pebbles to the page', 'pushpin'),
+                    m(Button, {
+                        id: 'btnForce',
+                        onclick: app.forceSwitch,
+                        title: 'Pin the variable pebbles to the page',
+                        class: [app.forcetoggle ? 'active' : '']
+                    }, glyph('pushpin')),
                     spaceBtn('btnEraser', app.nodes.length ? app.erase : app.unerase, app.nodes.length ? 'Wipe all variables from the modeling space' : 'Restore modeling space', app.nodes.length ? 'magnet' : 'refresh')
                 ]),
                 app.currentMode !== 'manipulate' && m(Subpanel, {title: "History"}),
@@ -1022,7 +1062,7 @@ class Body {
                 // ].map(btn =>
                 //     m(`#${btn[0]}.${app.zparams[btn[1]].length === 0 ? "hide" : "show"}[style=width:100% !important]`,
                 //         m(".rectColor[style=display:inline-block]", m("svg[style=width: 20px; height: 20px]",
-                //             m(`circle[cx=10][cy=10][fill=${btn[4]}][fill-opacity=0.6][r=9][stroke=${btn[3]}][stroke-opacity=${btn[5]}][stroke-width=2]`))),
+                //           f  m(`circle[cx=10][cy=10][fill=${btn[4]}][fill-opacity=0.6][r=9][stroke=${btn[3]}][stroke-opacity=${btn[5]}][stroke-width=2]`))),
                 //         m(".rectLabel[style=display:inline-block;vertical-align:text-bottom;margin-left:.5em]", btn[2])))
                 // ),
 
@@ -1204,34 +1244,6 @@ class Body {
 }
 
 
-let myNodes = [];
-let colors = d3.scale.category20();
-
-m.request('rook-custom/rook-files/185_baseball/preprocess/preprocess.json').then(data => {
-
-    myNodes = Object.keys(data.variables).map((variable, i) => Object.assign({
-        id: i,
-        reflexive: false,
-        name: variable,
-        labl: 'test',
-        data: [5, 15, 20, 0, 5, 15, 20],
-        count: [.6, .2, .9, .8, .1, .3, .4],  // temporary values for hold that correspond to histogram bins
-        nodeCol: colors(i),
-        baseCol: colors(i),
-        strokeColor: selVarColor,
-        strokeWidth: "1",
-        subsetplot: false,
-        subsetrange: ["", ""],
-        setxplot: false,
-        setxvals: ["", ""],
-        grayout: false,
-        group1: false,
-        group2: false,
-        forefront: false
-    }, data.variables[variable]))
-});
-
-
 if (IS_EVENTDATA_DOMAIN) {
     m.route(document.body, '/home', {
         '/data': {render: () => m(Peek, {id: 'eventdata', image: '/static/images/TwoRavens.png'})},
@@ -1241,42 +1253,6 @@ if (IS_EVENTDATA_DOMAIN) {
 else {
     m.route(document.body, '/model', {
         '/explore/:variate/:vars...': Body,
-        '/model': {
-            render: () => m('div', {style: {width: '100%', height: '500px'}}, m(ForceDiagram, {
-                selectedNode: undefined,
-                groups: [
-                    {
-                        name: "Predictors",
-                        color: gr1Color,
-                        nodes: []
-                    },
-                    {
-                        name: "Targets",
-                        color: gr2Color,
-                        nodes: []
-                    }
-                ],
-
-                nodes: myNodes,
-
-                groupLinks: [
-                    {
-                        source: 'Predictors',
-                        target: 'Targets',
-                        left: false,
-                        right: true
-                    }
-                ],
-                nodeLinks: [
-                    // {
-                    //     source: '',
-                    //     target: ,
-                    //     left: false,
-                    //     right: true
-                    // }
-                ]
-            }))
-        },
         '/data': {render: () => m(Peek, {id: app.peekId, image: '/static/images/TwoRavens.png'})},
         '/:mode': Body,
 

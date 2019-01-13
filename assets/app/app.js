@@ -425,7 +425,7 @@ let ind2 = [(RADIUS+30) * Math.cos(1.1), -1*(RADIUS+30) * Math.sin(1.1), 5];
 // space index
 export let myspace = 0;
 
-export let forcetoggle = ["true"];
+export let forcetoggle = true;
 
 // when set, a problem's Task, Subtask and Metric may not be edited
 export let lockToggle = true;
@@ -625,6 +625,7 @@ const [arcInd1, arcInd2] = [arcInd(arcInd1Limits), arcInd(arcInd2Limits)];
 let hoverTimeout = 150;
 let hoverPebble;
 export let selectedPebble;
+export let setSelectedPebble = pebble => selectedPebble = pebble;
 
 export let byId = id => document.getElementById(id);
 // export let byId = id => {console.log(id); return document.getElementById(id);}
@@ -842,7 +843,7 @@ async function load(hold, lablArray, d3mRootPath, d3mDataName, d3mPreprocess, d3
         problemDocExists = false;
     } else {
         alert("Something Unusual happened reading problem schema.")
-    };
+    }
 
     if(problemDocExists){
         console.log("Task 2: Problem Doc Exists");
@@ -888,7 +889,7 @@ async function load(hold, lablArray, d3mRootPath, d3mDataName, d3mPreprocess, d3
         d3mProblemDescription.id="Task1";
         d3mProblemDescription.name="Task1";
         d3mProblemDescription.description = "Discovered Problems";
-    };
+    }
 
     // 4. Read the data document and set 'datadocument'
     datadocument = await m.request(d3mDS);
@@ -1097,7 +1098,14 @@ async function load(hold, lablArray, d3mRootPath, d3mDataName, d3mPreprocess, d3
     }
 
     // 11. Call layout() and start up
-    layout(false, true);
+    // layout(false, true);
+    // mytarget = mytargetdefault;
+    // nodes = allNodes.slice(1,allNodes.length);  // Add all but first variable on startup (assumes 0 position is d3m index variable)
+    // nodes.forEach(node => node.group1 = !mytarget.includes(node.name));
+    // // update zparams
+    // zparams.zvars = nodes.map(node => node.name);
+    // zparams.zgroup1 = nodes.filter(node => !mytarget.includes(node.name)).map(node => node.name);
+
     IS_D3M_DOMAIN ? zPop() : dataDownload();
 
     setTimeout(loadResult, 10000);
@@ -1191,13 +1199,6 @@ export function main(fileid, hostname, ddiurl, dataurl, apikey) {
     }
     load(hold, lablArray, d3mRootPath, d3mDataName, d3mPreprocess, d3mData, d3mPS, d3mDS, pURL);
 }
-
-let $fill = (obj, op, d1, d2) => d3.select(obj).transition()
-    .attr('fill-opacity', op).attr('display', op ? '' : 'none')
-    .delay(d1)
-    .duration(d2);
-let fill = (d, id, op, d1, d2) => $fill('#' + id + d.id, op, d1, d2);
-let fillThis = (self, op, d1, d2) => $fill(self, op, d1, d2);
 
 /**
    deletes the item at index from array.
@@ -1321,850 +1322,236 @@ export function setup_svg(svg) {
     return [line, line2, visbackground, vis2background, vis, vis2, drag_line, path, circle];
 }
 
+let $fill = (obj, op, d1, d2) => d3.select(obj).transition()
+    .attr('fill-opacity', op).attr('display', op ? '' : 'none')
+    .delay(d1)
+    .duration(d2);
+let fill = (d, id, op, d1, d2) => $fill('#' + id + d.id, op, d1, d2);
+let fillThis = (self, op, d1, d2) => $fill(self, op, d1, d2);
+
+let rightClickLast = false;
+
+// mouse event vars
+var selected_node = null,
+    selected_link = null,
+    mousedown_link = null,
+    mousedown_node = null,
+    mouseup_node = null;
+
+// this is to detect a click in the whitespace, but not on a pebble
+let outsideClick = false;
+
+function resetMouseVars() {
+    mousedown_node = null;
+    mouseup_node = null;
+    mousedown_link = null;
+}
+
+export let forceDiagramEvents = {
+    labels: [
+        {
+            name: 'Groups',
+            color: common.gr1Color,
+            onclick: d => d.groups[0] = !d.groups[0],
+            labels: [
+                {
+                    name: '',
+                    color: common.gr1Color,
+                    onclick: d => d.groups[0] = !d.groups[0],
+                },
+                {
+                    name: '',
+                    color: common.gr2Color,
+                    onclick: d => d.groups[1] = !d.groups[1],
+                }
+            ]
+        },
+        {
+            name: 'Dep Var',
+            color: common.dvColor,
+            onclick: d => zparams.zdv.includes(d.name) ? del(zparams.zdv, d.name) : zparams.zdv.push(d.name)
+        },
+        {
+            name: 'Nominal',
+            color: common.nomColor,
+            onclick: d => zparams.znom.includes(d.name) ? del(zparams.znom, d.name) : zparams.znom.push(d.name)
+        }
+    ],
+    svg: {
+        mousedown: () => {
+            // prevent I-bar on drag
+            d3.event.preventDefault();
+            outsideClick = true;
+        },
+        mouseup: () => {
+            if (mousedown_node) {
+                drag_line
+                    .classed('hidden', true)
+                    .style('marker-end', '');
+            }
+            if (outsideClick) {
+                outsideClick = false;
+                selectedPebble = undefined;
+                if (leftTabHidden) {
+                    setLeftTab(leftTabHidden);
+                    leftTabHidden = undefined;
+                    m.redraw();
+                }
+            }
+            // because :active only works in WebKit?
+            svg.classed('active', false);
+            // clear mouse event vars
+            resetMouseVars();
+        },
+        mousemove: () => {
+            if (!mousedown_node)
+                return;
+            // update drag line
+            drag_line.attr('d', 'M' + mousedown_node.x + ',' + mousedown_node.y + 'L' + d3.mouse(this)[0] + ',' +
+                d3.mouse(this)[1]);
+        }
+    },
+    // events for each circle
+    circle: {
+        click: d => {
+            selectedPebble = d.name;
+
+            d3.event.stopPropagation();
+
+            if (rightClickLast) {
+                rightClickLast = false;
+                return;
+            }
+            if (!mousedown_node) return;
+
+            // needed by FF
+            drag_line
+                .classed('hidden', true)
+                .style('marker-end', '');
+
+            // check for drag-to-self
+            mouseup_node = d;
+            if (mouseup_node === mousedown_node) {
+                resetMouseVars();
+                return;
+            }
+
+            // unenlarge target node
+            d3.select(this).attr('transform', '');
+
+            // add link to graph (update if exists)
+            // NB: links are strictly source < target; arrows separately specified by booleans
+            var source, target, direction;
+            if (mousedown_node.id < mouseup_node.id) {
+                source = mousedown_node;
+                target = mouseup_node;
+                direction = 'right';
+            } else {
+                source = mouseup_node;
+                target = mousedown_node;
+                direction = 'left';
+            }
+
+            let link = nodeLinks.filter(x => x.source == source && x.target == target)[0];
+            if (link) {
+                link[direction] = true;
+            } else {
+                link = {
+                    source: source,
+                    target: target,
+                    left: false,
+                    right: false
+                };
+                link[direction] = true;
+                nodeLinks.push(link);
+            }
+
+            // select new link
+            selected_link = link;
+            selected_node = null;
+            svg.on('mousemove', null);
+
+            resetMouseVars();
+            m.redraw()
+        },
+        dblclick: () => d3.event.stopPropagation(), // stop the click from bubbling
+        contextmenu: d => {
+            // right click on node
+            d3.event.preventDefault();
+            d3.event.stopPropagation();
+
+            rightClickLast = true;
+            mousedown_node = d;
+            selected_node = mousedown_node === selected_node ? null : mousedown_node;
+            selected_link = null;
+
+            // reposition drag line
+            drag_line
+                .style('marker-end', is_explore_mode ? 'url(#end-marker)' : 'url(#end-arrow)')
+                .classed('hidden', false)
+                .attr('d', 'M' + mousedown_node.x + ',' + mousedown_node.y + 'L' + mousedown_node.x + ',' +
+                    mousedown_node.y);
+        },
+        // show summary stats on mouseover
+        mouseover: d => {
+
+            d.forefront = true;
+
+            setTimeout(() => {
+                if (leftTab !== 'Summary') leftTabHidden = leftTab;
+                setLeftTab('Summary');
+                varSummary(d);
+
+                m.redraw();
+
+                if (!d.forefront) return;
+                hoverPebble = d.name;
+
+                fill(d, "dvArc", .1, 0, 100);
+                fill(d, "dvText", .5, 0, 100);
+                fill(d, "grArc", .1, 0, 100);
+                fill(d, "grText", .5, 0, 100);
+
+                //fill(d, "gr1indicator", .1, 0, 100);
+                //fill(d, "gr1indicatorText", .1, 0, 100);
+                //fill(d, "gr2indicator", .1, 0, 100);
+                //fill(d, "gr2indicatorText", .1, 0, 100);
+
+                if (d.defaultNumchar === "numeric") {
+                    fill(d, "nomArc", .1, 0, 100);
+                    fill(d, "nomText", .5, 0, 100);
+                }
+                fill(d, "csArc", .1, 0, 100);
+                fill(d, "csText", .5, 0, 100);
+                fill(d, "timeArc", .1, 0, 100);
+                fill(d, "timeText", .5, 0, 100);
+            }, hoverTimeout)
+        },
+        mouseout: d => {
+            d.forefront = false;
+            setTimeout(() => {
+                hoverPebble = undefined;
+
+                if (selectedPebble) varSummary(allNodes.find((node) => node.name === selectedPebble));
+                else setLeftTab(leftTabHidden);
+
+                if (selectedPebble !== d.name)
+                    'csArc csText timeArc timeText dvArc dvText nomArc nomText grArc grText'.split(' ').map(x => fill(d, x, 0, 100, 500));
+
+                m.redraw();
+            }, hoverTimeout)
+        },
+    },
+    edge: {
+        mousedown: d => links.some(link => d === link && (del(links, link) || true)) // delete the link d
+    }
+};
+
 
 // layout function constants
 const layoutAdd = "add";
 const layoutMove = "move";
-
-export function layout(layoutConstant, v2) {
-    var myValues = [];
-    nodes = [];
-    links = [];
-
-    var [line, line2, visbackground, vis2background, vis, vis2, drag_line, path, circle] = setup_svg(svg);
-
-    if (layoutConstant == layoutAdd || layoutConstant == layoutMove) {
-        nodes = zparams.zvars.map(findNode).filter(node => !node.grayout)
-        links = zparams.zedges.map(edge => ({
-            source: findNodeIndex(edge[0]),
-            target: findNodeIndex(edge[1]),
-            left: false,
-            right: true
-        }));
-    } else {
-        if(IS_D3M_DOMAIN) {
-            mytarget = mytargetdefault;
-            nodes = allNodes.slice(1,allNodes.length);  // Add all but first variable on startup (assumes 0 position is d3m index variable)
-            nodes.forEach(node => node.group1 = !mytarget.includes(node.name))
-            // update zparams
-            zparams.zvars = nodes.map(node => node.name);
-            zparams.zgroup1 = nodes.filter(node => !mytarget.includes(node.name)).map(node => node.name);
-
-        } else if (allNodes.length > 2) {
-            nodes = [allNodes[0], allNodes[1], allNodes[2]];
-            links = [{
-                source: nodes[1],
-                target: nodes[0],
-                left: false,
-                right: true
-            }, {
-                source: nodes[0],
-                target: nodes[2],
-                left: false,
-                right: true
-            }];
-        } else if (allNodes.length === 2) {
-            nodes = [allNodes[0], allNodes[1]];
-            links = [{
-                source: nodes[1],
-                target: nodes[0],
-                left: false,
-                right: true
-            }];
-        } else if (allNodes.length === 1) {
-            nodes = [allNodes[0]];
-        } else {
-            alert("There are zero variables in the metadata.");
-            return;
-        }
-    }
-
-    panelPlots(); // after nodes is populated, add subset and (if !IS_D3M_DOMAIN) setx panels
-
-    let force = d3.layout.force()
-        .nodes(nodes)
-        .links(links)
-        .size([width, height])
-        .linkDistance(150)
-        .charge(-800)
-        .on('tick', tick);
-
-    // mouse event vars
-    var selected_node = null,
-        selected_link = null,
-        mousedown_link = null,
-        mousedown_node = null,
-        mouseup_node = null;
-
-    function resetMouseVars() {
-        mousedown_node = null;
-        mouseup_node = null;
-        mousedown_link = null;
-    }
-
-    // update force layout (called automatically each iteration)
-    function tick() {
-        if (is_explore_mode) {
-            return;
-        }
-
-        function findcoords(findnames,allnames,coords,lengthen){
-            var fcoords = new Array(findnames.length);   // found coordinates
-            var addlocation = 0;
-            for (var j = 0; j < findnames.length; j++) {
-                addlocation = allnames.indexOf(findnames[j]);
-                fcoords[j] = coords[addlocation];
-            };
-
-            if(lengthen){
-                // d3.geom.hull returns null for two points, and fails if three points are in a line,
-                // so this puts a couple points slightly off the line for two points, or around a singleton.
-                if (fcoords.length == 2){
-                    var deltax = fcoords[0][0]- fcoords[1][0];
-                    var deltay = fcoords[0][1]- fcoords[1][1];
-                    fcoords.push([(fcoords[0][0] + fcoords[1][0])/2 + deltay/20, (fcoords[0][1]+ fcoords[1][1])/2 + deltax/20]);
-                    fcoords.push([(fcoords[0][0] + fcoords[1][0])/2 - deltay/20, (fcoords[0][1]+ fcoords[1][1])/2 - deltax/20]);
-                }
-                if (fcoords.length == 1){
-                    var delta = RADIUS * 0.2;
-                    fcoords.push([fcoords[0][0] + delta, fcoords[0][1]]);
-                    fcoords.push([fcoords[0][0] - delta, fcoords[0][1]]);
-                    fcoords.push([fcoords[0][0], fcoords[0][1] + delta]);
-                    fcoords.push([fcoords[0][0], fcoords[0][1] - delta]);
-                }
-            }
-            return (fcoords);
-        };
-
-        // d3.geom.hull returns null for two points, and fails if three points are in a line,
-        // so this puts a couple points slightly off the line for two points, or around a singleton.
-        function lengthencoords(coords){
-            if (coords.length == 2){
-                var deltax = coords[0][0]- coords[1][0];
-                var deltay = coords[0][1]- coords[1][1];
-                coords.push([(coords[0][0] + coords[1][0])/2 + deltay/20, (coords[0][1]+ coords[1][1])/2 + deltax/20]);
-                coords.push([(coords[0][0] + coords[1][0])/2 - deltay/20, (coords[0][1]+ coords[1][1])/2 - deltax/20]);
-            }
-            if (coords.length == 1){
-                var delta = RADIUS * 0.2;
-                coords.push([coords[0][0] + delta, coords[0][1]]);
-                coords.push([coords[0][0] - delta, coords[0][1]]);
-                coords.push([coords[0][0], coords[0][1] + delta]);
-                coords.push([coords[0][0], coords[0][1] - delta]);
-            }
-            return (coords);
-        };
-
-        console.warn('#debug nodes');
-        console.log(nodes[0].x);
-        var coords = nodes.map(function(d) {  return [ d.x, d.y]; });
-
-        var gr1coords = findcoords(zparams.zgroup1, zparams.zvars, coords, true);
-        var gr2coords = findcoords(zparams.zgroup2, zparams.zvars, coords, true);
-        var depcoords = findcoords(zparams.zdv, zparams.zvars, coords, false);
-
-        // draw convex hull around independent variables, if three or more coordinates given
-        // note, d3.geom.hull returns null if shorter coordinate set than 3,
-        // so findcoords() function has option to lengthen the coordinates returned to bypass this
-        if(gr1coords.length > 2){
-            line.style("opacity", 1);
-            visbackground.style("opacity", 1);
-            vis.style("opacity", 0.3);
-            var myhull = d3.geom.hull(gr1coords);
-
-            vis.selectAll("path")
-                .data([myhull])   // returns null if less than three coordinates
-                .attr("d", function(d) { return "M" + d.join("L") + "Z"; });
-            visbackground.selectAll("path")
-                .data([myhull])   // returns null if less than three coordinates
-                .attr("d", function(d) { return "M" + d.join("L") + "Z"; });
-
-            //var p = d3.geom.polygon(indcoords).centroid();  // Seems to go strange sometimes
-            var p = jamescentroid(gr1coords);
-
-            if(depcoords.length>0){
-                var q = depcoords[0];                         // Note, only using first dep var currently
-                //var r = findboundary(p,q,gr1coords);        // An approach to find the exact boundary, not presently working
-                var ldeltaX = q[0] - p[0],
-                    ldeltaY = q[1] - p[1],
-                    ldist = Math.sqrt(ldeltaX * ldeltaX + ldeltaY * ldeltaY),
-                    lnormX = 0,
-                    lnormY = 0,
-                    lsourcePadding = RADIUS + 7,
-                    ltargetPadding = RADIUS + 10;
-
-                if (ldist > 0){
-                    lnormX = ldeltaX / ldist;
-                    lnormY = ldeltaY / ldist;
-                };
-
-                line.attr("x1", p[0] + (lsourcePadding * lnormX))   // or r[0] if findboundary works
-                    .attr("y1", p[1] + (lsourcePadding * lnormY))   // or r[1] if findboundary works
-                    .attr("x2", q[0]- (ltargetPadding * lnormX))
-                    .attr("y2", q[1]- (ltargetPadding * lnormY))
-                    .style('opacity', 1);
-            }
-            else line.style('opacity', 0);
-
-            // group members attract each other, repulse non-group members
-            nodes.forEach(n => {
-                var sign = (n.group1) ? 1 : -1;    //was: Math.sign( zparams.zgroup1.indexOf(n.name) +0.5 );  // 1 if n in group, -1 if n not in group;
-                var ldeltaX = p[0] - n.x,
-                    ldeltaY = p[1] - n.y,
-                    ldist = Math.sqrt(ldeltaX * ldeltaX + ldeltaY * ldeltaY);
-                    lnormX = 0,
-                    lnormY = 0;
-
-                if (ldist > 0){
-                    lnormX = ldeltaX / ldist;
-                    lnormY = ldeltaY / ldist;
-                };
-
-                n.x += Math.min(lnormX , ldeltaX/100 ) * k * sign   * force.alpha();
-                n.y += Math.min(lnormY , ldeltaY/100 ) * k * sign   * force.alpha();
-            });
-
-        } else {
-            visbackground.style("opacity", 0);
-            vis.style("opacity", 0);
-            line.style("opacity", 0);
-        };
-
-        if(gr2coords.length > 2){
-            line2.style("opacity", 1);
-            vis2background.style("opacity", 1);
-            vis2.style("opacity", 0.3);
-            var myhull = d3.geom.hull(gr2coords);
-            vis2.selectAll("path")
-                .data([myhull])   // returns null if less than three coordinates
-                .attr("d", function(d) { return "M" + d.join("L") + "Z"; });
-            vis2background.selectAll("path")
-                .data([myhull])   // returns null if less than three coordinates
-                .attr("d", function(d) { return "M" + d.join("L") + "Z"; });
-
-            //var p = d3.geom.polygon(indcoords).centroid();  // Seems to go strange sometimes
-            var p = jamescentroid(gr2coords);
-
-            if(depcoords.length>0){
-                var q = depcoords[0];                             // Note, only using first dep var currently
-                var ldeltaX = q[0] - p[0],
-                    ldeltaY = q[1] - p[1],
-                    ldist = Math.sqrt(ldeltaX * ldeltaX + ldeltaY * ldeltaY),
-                    lnormX = ldeltaX / ldist,
-                    lnormY = ldeltaY / ldist,
-                    lsourcePadding = RADIUS + 7,
-                    ltargetPadding = RADIUS + 10;
-
-                line2.attr("x1", p[0] + (lsourcePadding * lnormX))
-                    .attr("y1", p[1] + (lsourcePadding * lnormY))
-                    .attr("x2", q[0]- (ltargetPadding * lnormX))
-                    .attr("y2", q[1]- (ltargetPadding * lnormY))
-                    .style('opacity', 0);
-            }
-            else line2.style('opacity', 0);
-
-            // group members attract each other, repulse non-group members
-            nodes.forEach(n => {
-                var sign = (n.group2) ? 1 : -1;  // was: Math.sign( zparams.zgroup2.indexOf(n.name) +0.5 );  // 1 if n in group, -1 if n not in group;
-                var ldeltaX = p[0] - n.x,
-                    ldeltaY = p[1] - n.y,
-                    ldist = Math.sqrt(ldeltaX * ldeltaX + ldeltaY * ldeltaY),
-                    lnormX = 0,
-                    lnormY = 0;
-
-                if (ldist > 0){
-                    lnormX = ldeltaX / ldist;
-                    lnormY = ldeltaY / ldist;
-                };
-
-                n.x += Math.min(lnormX , ldeltaX/100 ) * k * sign   * force.alpha();
-                n.y += Math.min(lnormY , ldeltaY/100 ) * k * sign   * force.alpha();
-            });
-
-
-        }else{
-            vis2background.style("opacity", 0);
-            vis2.style("opacity", 0);
-            line2.style("opacity", 0);
-        };
-
-        // draw directed edges with proper padding from node centers
-        path.attr('d', d => {
-            var deltaX = d.target.x - d.source.x,
-                deltaY = d.target.y - d.source.y,
-                dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-                normX = deltaX / dist,
-                normY = deltaY / dist,
-                sourcePadding = d.left ? RADIUS + 5 : RADIUS,
-                targetPadding = d.right ? RADIUS + 5 : RADIUS,
-                sourceX = d.source.x + (sourcePadding * normX),
-                sourceY = d.source.y + (sourcePadding * normY),
-                targetX = d.target.x - (targetPadding * normX),
-                targetY = d.target.y - (targetPadding * normY);
-            return `M${sourceX},${sourceY}L${targetX},${targetY}`;
-        });
-
-        circle.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
-
-        circle.selectAll('circle')           // Shrink/expand pebbles that join/leave groups
-            .transition()
-            .duration(100)
-            .attr('r', d => setPebbleRadius(d));
-    }
-
-    // this is to detect a click in the whitespace, but not on a pebble
-    let outsideClick = false;
-
-    let redrawPebble = pebble => {
-        // nullity check for when reintroducing variable from variable list
-        if (pebble === null) return;
-        let data = pebble.__data__;
-
-        let radius = setPebbleRadius(data);
-        if (data.plottype == 'continuous') densityNode(data, pebble, setPebbleRadius(data));
-        else if (data.plottype == 'bar') barsNode(data, pebble, setPebbleRadius(data));
-
-        d3.select(pebble.querySelector("[id^='pebbleLabel']")).style('font-size', radius * .175 + 7 + 'px')  // proportional scaling would be 14 / 40, but I added y-intercept at 7
-        d3.select(pebble.querySelector("[id^='dvArc']")).attr("d", arc3(radius))
-        d3.select(pebble.querySelector("[id^='nomArc']")).attr("d", arc4(radius))
-        d3.select(pebble.querySelector("[id^='grArc']")).attr("d", arc1(radius))
-        d3.select(pebble.querySelector("[id^='gr1indicator']")).attr("d", arcInd1(radius))
-        d3.select(pebble.querySelector("[id^='gr2indicator']")).attr("d", arcInd2(radius))
-
-        if (!data.forefront && data.name !== selectedPebble) {
-            fillThis(pebble.querySelector('[id^=grArc]'), 0, 100, 500);
-            fill(data, "grText", 0, 100, 500);
-            fillThis(pebble.querySelector('[id^=dvArc]'), 0, 100, 500);
-            fill(data, "dvText", 0, 100, 500);
-            fillThis(pebble.querySelector('[id^=nomArc]'), 0, 100, 500);
-            fill(data, "nomText", 0, 100, 500);
-            fill(data, "gr1indicator", 0, 100, 500);
-            fill(data, "gr2indicator", 0, 100, 500);
-        }
-    }
-
-    // update graph (called when needed)
-    restart = function($links) {
-        if (is_results_mode) {
-            return;
-        }
-
-        links = $links || links;
-        // nodes.id is pegged to allNodes, i.e. the order in which variables are read in
-        // nodes.index is floating and depends on updates to nodes.  a variables index changes when new variables are added.
-        circle.call(force.drag);
-        if (forcetoggle[0] == "true") {
-            force.gravity(0.1);
-            force.charge(d => setPebbleCharge(d));
-            force.start();
-            force.linkStrength(1);
-            k = 4; // strength parameter for group attraction/repulsion
-            if ((zparams.zgroup1.length > 0) & (zparams.zgroup2.length > 0 )) { // scale down by number of active groups
-                k = 2.5;
-            }
-        } else {
-            force.gravity(0);
-            force.charge(0);
-            force.linkStrength(0);
-            k = 0;
-        }
-        force.resume();
-
-        // path (link) group
-        path = path.data(links);
-
-        let marker = side => x => {
-            let kind = side === 'left' ? 'start' : 'end';
-            return is_explore_mode ? 'url(#circle)' :
-                x[side] ? `url(#${kind}-arrow)` :
-                    '';
-        };
-
-        // update existing links
-        // VJD: dashed links between pebbles are "selected". this is disabled for now
-        path.classed('selected', x => null)
-            .style('marker-start', marker('left'))
-            .style('marker-end', marker('right'));
-
-        // add new links
-        path.enter().append('svg:path')
-            .attr('class', 'link')
-            .classed('selected', x => null)
-            .style('marker-start', marker('left'))
-            .style('marker-end', marker('right'))
-            .on('mousedown', function(d) { // do we ever need to select a link? make it delete..
-                var obj = JSON.stringify(d);
-                for (var j = 0; j < links.length; j++) {
-                    if (obj === JSON.stringify(links[j]))
-                        del(links, j);
-                }
-            });
-
-        // remove old links
-        path.exit().remove();
-
-        // circle (node) group
-        circle = circle.data(nodes, x => x.id);
-
-        // remove handles and make sure pebbles are properly sized when restart is called
-        circle[0].forEach(redrawPebble)
-
-        // update existing nodes (reflexive & selected visual states)
-        // d3.rgb is the function adjusting the color here
-        circle.selectAll('circle')
-            .classed('reflexive', x => x.reflexive)
-            .style('fill', x => d3.rgb(x.nodeCol))
-            .style('stroke', x => d3.rgb(x.strokeColor))
-            .style('stroke-width', x => x.strokeWidth);
-        // add new nodes
-        let g = circle.enter()
-            .append('svg:g')
-            .attr('id', x => x.name + 'biggroup');
-
-        // add plot
-        g.each(function(d) {
-            d3.select(this);
-            if (d.plottype == 'continuous') densityNode(d, this, setPebbleRadius(d));
-            else if (d.plottype == 'bar') barsNode(d, this, setPebbleRadius(d));
-        });
-
-        let append = (str, attr) => x => str + x[attr || 'id'];
-
-        g.append("path").each(function(d) {
-            let radius = setPebbleRadius(d);
-            d3.select(this)
-                .attr("id", append('dvArc'))
-                .attr("d", arc3(radius))
-                .style("fill", dvColor)
-                .attr("fill-opacity", 0)
-                .on('mouseover', function(d) {
-                    d.forefront = true;
-                    if (hoverPebble === d.name) {
-                        setTimeout(() => {
-                            if (!d.forefront) return;
-                            hoverPebble = d.name;
-                            fillThis(this, .3, 0, 100);
-                            fill(d, 'dvText', .9, 0, 100);
-                        }, hoverTimeout)
-                    }
-                })
-                .on('mouseout', function(d) {
-                    d.forefront = false;
-                    if (d.name === selectedPebble) return;
-                    setTimeout(() => {
-                        fillThis(this, 0, 100, 500);
-                        fill(d, 'dvText', 0, 100, 500);
-                    }, hoverTimeout)
-                })
-                .on('click', function(d) {
-                    setColors(d, dvColor);
-                    selectedPebble = d.name;
-                    restart();
-                    m.redraw();
-                });
-        })
-
-        g.append("text")
-            .attr("id", append('dvText'))
-            .attr("x", 6)
-            .attr("dy", 11.5)
-            .attr("fill-opacity", 0)
-            .append("textPath")
-            .attr("xlink:href", append('#dvArc'))
-            .text("Dep Var");
-
-        g.append("path").each(function(d) {
-            let radius = setPebbleRadius(d);
-            d3.select(this)
-                .attr("id", append('nomArc'))
-                .attr("d", arc4(radius))
-                .style("fill", nomColor)
-                .attr("fill-opacity", 0)
-                .on('mouseover', function (d) {
-                    if (d.defaultNumchar == "character") return;
-                    d.forefront = true;
-                    if (hoverPebble === d.name) {
-                        setTimeout(() => {
-                            if (!d.forefront) return;
-                            hoverPebble = d.name;
-                            fillThis(this, .3, 0, 100);
-                            fill(d, "nomText", .9, 0, 100);
-                        }, hoverTimeout)
-                    }
-                })
-                .on('mouseout', function (d) {
-                    if (d.defaultNumchar == "character") return;
-                    d.forefront = false;
-                    if (d.name === selectedPebble) return;
-                    setTimeout(() => {
-                        fillThis(this, 0, 100, 500);
-                        fill(d, "nomText", 0, 100, 500);
-                    }, hoverTimeout)
-                })
-                .on('click', function (d) {
-                    if (d.defaultNumchar == "character") return;
-                    setColors(d, nomColor);
-                    selectedPebble = d.name;
-                    restart();
-                    m.redraw();
-                });
-        });
-
-        g.append("text")
-            .attr("id", append("nomText"))
-            .attr("x", 6)
-            .attr("dy", 11.5)
-            .attr("fill-opacity", 0)
-            .append("textPath")
-            .attr("xlink:href", append("#nomArc"))
-            .text("Nominal");
-
-        g.append("path").each(function(d) {
-            let radius = setPebbleRadius(d);
-            d3.select(this)
-                .attr("id", append('grArc'))
-                .attr("d", arc1(radius))
-                .style("fill", gr1Color)
-                .attr("fill-opacity", 0)
-                .on('mouseover', function (d) {
-                    fill(d, "gr1indicator", .3, 0, 100);
-                    fill(d, "gr2indicator", .3, 0, 100);
-                    d.forefront = true;
-                    if (hoverPebble === d.name) {
-                        setTimeout(() => {
-                            if (!d.forefront) return;
-                            hoverPebble = d.name;
-                            fillThis(this, .3, 0, 100);
-                            fill(d, 'grText', .9, 0, 100);
-                        }, hoverTimeout)
-                    }
-                })
-                .on('mouseout', function (d) {
-                    d.forefront = false;
-                    if (d.name === selectedPebble) return;
-                    setTimeout(() => {
-                        fill(d, "gr1indicator", 0, 100, 500);
-                        fill(d, "gr2indicator", 0, 100, 500);
-                        fillThis(this, 0, 100, 500);
-                        fill(d, 'grText', 0, 100, 500);
-                    }, hoverTimeout)
-                })
-                .on('click', d => {
-                    setColors(d, gr1Color);
-                    selectedPebble = d.name;
-                    restart();
-                    m.redraw();
-                });
-        });
-
-        g.append("path").each(function(d) {
-            let radius = setPebbleRadius(d);
-            d3.select(this)
-                .attr("id", append('gr1indicator'))
-                .attr("d", arcInd1(radius))
-                .style("fill", gr1Color)  // something like: zparams.zgroup1.indexOf(node.name) > -1  ?  #FFFFFF : gr1Color)
-                .attr("fill-opacity", 0)
-                .on('mouseover', function (d) {
-                    d.forefront = true;
-                    if (hoverPebble === d.name) {
-                        setTimeout(() => {
-                            if (!d.forefront) return;
-                            hoverPebble = d.name;
-                            fillThis(this, .3, 0, 100);
-                            fill(d, "grArc", .1, 0, 100);
-                            fill(d, 'grText', .9, 0, 100);
-                        }, hoverTimeout)
-                    }
-                })
-                .on('mouseout', function (d) {
-                    d.forefront = false;
-                    if (d.name === selectedPebble) return;
-                    setTimeout(() => {
-                        fillThis(this, 0, 100, 500);
-                        fill(d, "grArc", 0, 100, 500);
-                        fill(d, 'grText', 0, 100, 500);
-                    }, hoverTimeout)
-                })
-                .on('click', d => {
-                    setColors(d, gr1Color);
-                    selectedPebble = d.name;
-                    restart();
-                    m.redraw();
-                });
-        });
-
-        g.append("path").each(function(d) {
-            let radius = setPebbleRadius(d);
-            d3.select(this)
-                .attr("id", append('gr2indicator'))
-                .attr("d", arcInd2(radius))
-                .style("fill", gr2Color)  // something like: zparams.zgroup1.indexOf(node.name) > -1  ?  #FFFFFF : gr1Color)
-                .attr("fill-opacity", 0)
-                .on('mouseover', function (d) {
-                    d.forefront = true;
-                    if (hoverPebble === d.name) {
-                        setTimeout(() => {
-                            if (!d.forefront) return;
-                            hoverPebble = d.name;
-                            fillThis(this, .3, 0, 100);
-                            fill(d, "grArc", .1, 0, 100);
-                            fill(d, 'grText', .9, 0, 100);
-                        }, hoverTimeout)
-                    }
-                })
-                .on('mouseout', function (d) {
-                    d.forefront = false;
-                    if (d.name === selectedPebble) return;
-                    setTimeout(() => {
-                        fillThis(this, 0, 100, 500);
-                        fill(d, "grArc", 0, 100, 500);
-                        fill(d, 'grText', 0, 100, 500);
-                    }, hoverTimeout)
-                })
-                .on('click', d => {
-                    setColors(d, gr2Color);
-                    selectedPebble = d.name;
-                    restart();
-                    m.redraw();
-                });
-        });
-
-        g.append("text")
-            .attr("id", append('grText'))
-            .attr("x", 6)
-            .attr("dy", 11.5)
-            .attr("fill-opacity", 0)
-            .append("textPath")
-            .attr("xlink:href", append('#grArc'))
-            .text("Groups");
-
-        g.append('svg:circle')
-            .attr('class', 'node')
-            .attr('r', d => setPebbleRadius(d))
-            .style('pointer-events', 'inherit')
-            .style('fill', d => d.nodeCol)
-            .style('opacity', "0.5")
-            .style('stroke', d => d3.rgb(d.strokeColor).toString())
-            .classed('reflexive', d => d.reflexive)
-            // TODO should this be used?
-            .on('dblclick', function(_) {
-                d3.event.stopPropagation(); // stop click from bubbling
-                summaryHold = true;
-            })
-            .on('click', function(d) {
-                selectedPebble = d.name;
-                outsideClick = false;
-                restart();
-                m.redraw();
-            })
-            .on('contextmenu', function(d) {
-                // right click on node
-                d3.event.preventDefault();
-                d3.event.stopPropagation();
-
-                rightClickLast = true;
-                mousedown_node = d;
-                selected_node = mousedown_node === selected_node ? null : mousedown_node;
-                selected_link = null;
-
-                // reposition drag line
-                drag_line
-                    .style('marker-end', is_explore_mode? 'url(#end-marker)' : 'url(#end-arrow)')
-                    .classed('hidden', false)
-                    .attr('d', 'M' + mousedown_node.x + ',' + mousedown_node.y + 'L' + mousedown_node.x + ',' + mousedown_node.y);
-
-                svg.on('mousemove', mousemove);
-                restart();
-            })
-            .on('mouseup', function(d) {
-                d3.event.stopPropagation();
-
-                if (rightClickLast) {
-                    rightClickLast = false;
-                    return;
-                }
-                if (!mousedown_node) return;
-
-                // needed by FF
-                drag_line
-                    .classed('hidden', true)
-                    .style('marker-end', '');
-
-                // check for drag-to-self
-                mouseup_node = d;
-                if (mouseup_node === mousedown_node) {
-                    resetMouseVars();
-                    return;
-                }
-
-                // unenlarge target node
-                d3.select(this).attr('transform', '');
-
-                // add link to graph (update if exists)
-                // NB: links are strictly source < target; arrows separately specified by booleans
-                var source, target, direction;
-                if (mousedown_node.id < mouseup_node.id) {
-                    source = mousedown_node;
-                    target = mouseup_node;
-                    direction = 'right';
-                } else {
-                    source = mouseup_node;
-                    target = mousedown_node;
-                    direction = 'left';
-                }
-
-                let link = links.filter(x => x.source == source && x.target == target)[0];
-                if (link) {
-                    link[direction] = true;
-                } else {
-                    link = {
-                        source: source,
-                        target: target,
-                        left: false,
-                        right: false
-                    };
-                    link[direction] = true;
-                    links.push(link);
-                }
-
-                // select new link
-                selected_link = link;
-                selected_node = null;
-                svg.on('mousemove', null);
-
-                resetMouseVars();
-                restart();
-            });
-
-        // show node names
-        g.append('svg:text')
-            .attr('id', append('pebbleLabel'))
-            .attr('x', 0)
-            .attr('y', 15)
-            .attr('class', 'id')
-            .text(d => d.name);
-
-        // show summary stats on mouseover
-        // SVG doesn't support text wrapping, use html instead
-        g.selectAll("circle.node")
-            .on("mouseover", d => {
-
-                d.forefront = true;
-
-                setTimeout(() => {
-                    if (leftTab !== 'Summary') leftTabHidden = leftTab;
-                    setLeftTab('Summary');
-                    varSummary(d);
-
-                    m.redraw();
-
-                    if (!d.forefront) return;
-                    hoverPebble = d.name;
-
-                    fill(d, "dvArc", .1, 0, 100);
-                    fill(d, "dvText", .5, 0, 100);
-                    fill(d, "grArc", .1, 0, 100);
-                    fill(d, "grText", .5, 0, 100);
-
-                    //fill(d, "gr1indicator", .1, 0, 100);
-                    //fill(d, "gr1indicatorText", .1, 0, 100);
-                    //fill(d, "gr2indicator", .1, 0, 100);
-                    //fill(d, "gr2indicatorText", .1, 0, 100);
-
-                    if (d.defaultNumchar == "numeric") {
-                        fill(d, "nomArc", .1, 0, 100);
-                        fill(d, "nomText", .5, 0, 100);
-                    }
-                    fill(d, "csArc", .1, 0, 100);
-                    fill(d, "csText", .5, 0, 100);
-                    fill(d, "timeArc", .1, 0, 100);
-                    fill(d, "timeText", .5, 0, 100);
-                }, hoverTimeout)
-            })
-            .on('mouseout', d => {
-                d.forefront = false;
-                setTimeout(() => {
-                    hoverPebble = undefined;
-
-                    if (selectedPebble) varSummary(allNodes.find((node) => node.name === selectedPebble));
-                    else setLeftTab(leftTabHidden);
-
-                    if (selectedPebble !== d.name)
-                        'csArc csText timeArc timeText dvArc dvText nomArc nomText grArc grText'.split(' ').map(x => fill(d, x, 0, 100, 500));
-
-                    m.redraw();
-                }, hoverTimeout)
-            });
-
-        // remove old nodes
-        circle.exit().remove();
-        force.start();
-
-        // save workspaces
-        // console.log('ok ws');
-        record_user_metadata();
-    }
-
-    function mousedown(d) {
-        selectedPebble = undefined;
-        // prevent I-bar on drag
-        d3.event.preventDefault();
-        // because :active only works in WebKit?
-        svg.classed('active', true);
-        if (d3.event.ctrlKey || mousedown_node || mousedown_link) return;
-        outsideClick = true;
-        restart();
-    }
-
-    function mousemove(d) {
-        if (!mousedown_node)
-            return;
-        // update drag line
-        drag_line.attr('d', 'M' + mousedown_node.x + ',' + mousedown_node.y + 'L' + d3.mouse(this)[0] + ',' + d3.mouse(this)[1]);
-    }
-
-    function mouseup(d) {
-        if (mousedown_node) {
-            drag_line
-                .classed('hidden', true)
-                .style('marker-end', '');
-        }
-        if (outsideClick) {
-            outsideClick = false;
-            if (leftTabHidden) {
-                setLeftTab(leftTabHidden);
-                leftTabHidden = undefined;
-                m.redraw();
-            }
-        }
-        // because :active only works in WebKit?
-        svg.classed('active', false);
-        // clear mouse event vars
-        resetMouseVars();
-    }
-
-    // app starts here
-    svg.attr('id', () => "whitespace".concat(myspace))
-        .attr('height', height)
-        .attr('width', width)
-        .on('mousedown', function() {mousedown(this);})
-        .on('mouseup', function() {mouseup(this);});
-
-    restart(); // initializes force.layout()
-    fakeClick();
-
-    if(v2 && IS_D3M_DOMAIN) {
-        var click_ev = document.createEvent("MouseEvents");
-        // initialize the event
-        click_ev.initEvent("click", true /* bubble */, true /* cancelable */);
-        // trigger the event
-        byId("dvArc" + findNodeIndex(mytarget[0])).dispatchEvent(click_ev);
-
-        // The dispatched click sets the leftpanel. This switches the panel back on page load
-        selectedPebble = undefined;
-        mouseup();
-    }
-}
+// TODO large deletion occurred here -Mike
 
 /** needs doc */
 function find($nodes, name) {
@@ -2259,10 +1646,7 @@ export function clickVar(elem, $nodes) {
         }
     }
 
-    if (updateNode(elem, $nodes || nodes)) {
-        // panelPlots(); is this necessary?
-        restart();
-    }
+    updateNode(elem, $nodes || nodes)
 }
 
 // Used for left panel variable search
@@ -2303,13 +1687,7 @@ export function getVariableData(json) {
  called by force button
  */
 export function forceSwitch() {
-    forcetoggle = [forcetoggle[0] == 'true' ? 'false' : 'true'];
-    if (forcetoggle[0] === "false") {
-        byId('btnForce').setAttribute("class", "btn active");
-    } else {
-        byId('btnForce').setAttribute("class", "btn btn-default");
-        fakeClick();
-    }
+    forcetoggle = !forcetoggle;
 }
 
 /** needs doc */
