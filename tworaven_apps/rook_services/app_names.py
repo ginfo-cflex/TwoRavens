@@ -22,6 +22,7 @@ ROOK_APP_NAMES = [('DATA_APP', 'dataapp', 'dataapp'),       # session id?
                   ('PIPELINE_APP', 'pipelineapp', 'pipelineapp'), # format pipeline
                   ('EXPLORE_APP', 'exploreapp', 'exploreapp'),
                   ('SOLVER_APP', 'solverapp', 'solverapp'),
+                  ('MKDOCS_APP', 'mkdocsapp', 'mkdocsapp'),
                   ('PLOTDATA_APP', 'plotdataapp', 'plotdataapp'),
                   ('TREE_APP', 'treeapp', 'treeapp'),
                   (HEALTH_CHECK_APP, 'healthcheckapp', 'healthcheckapp'), # healthcheckapp

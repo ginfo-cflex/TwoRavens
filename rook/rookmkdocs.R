@@ -1,6 +1,6 @@
 ## 
 ## rookmkdocs.R
-## Build a folder structure and metadata to resemble MIT-LincolnLabs seed datasets
+## rook app that takes as input a data file, datasetDoc info, and problemDoc info, and writes datasetDoc.json and problemDoc.json strings
 ##
 
 
@@ -27,88 +27,89 @@ is_binary <- function(v) {
     length(x) - sum(is.na(x)) == 2L
 }
 
-# seed_zombie function
-# returns a list with datasetDoc and problemDoc
-seed_zombie <- function(data, name, fraction=0.2, ID=NULL, citation="", description="", depvarname=NULL, taskType=NULL, taskSubType="", metric=NULL, seed=123 ){
 
-  set.seed=seed
+makeDocs <- function(data, name, ID="", citation="", description="", targets=NULL, taskType=NULL, taskSubType=NULL, metric=NULL, problemDoc=NULL, dataDoc=NULL){
 
-  if (is.null(ID)){
-    ID=name
-  }
+    n <- nrow(data)
+    
+    ## extract depvarname from targets, note this will only use the first
+    depvarname <- targets[[1]]$colName
   
-  # check for d3mIndex, if none, add one
-  if("d3mIndex" %in% colnames(data)) {
-    # moving it to the first column, in case it's somewhere else
-    data <- data[,c(which(colnames(data)=="d3mIndex"),which(colnames(data)!="d3mIndex"))]
-  } else { # d3mIndex is not in column names, so adding it
-    d3mIndex <- 1:nrow(data)
-    data <- cbind(d3mIndex, data)
-  }
+    ## Write datasetDoc json string
 
-  n <- nrow(data)
-  ## Write datasetDoc json string
+    columnlist = list()
+    allNames <- names(data)
+    locatedDV <- FALSE
 
-  columnlist = list()
-  allNames <- names(data)
-  locatedDV <- FALSE
-
-  for(i in 1:ncol(data)){
+    for(i in 1:ncol(data)){
  #   print(i)
  #   print(colnames(data)[i])
-    tempdata <- data[,i]
+        tempdata <- data[,i]
 
-    if(allNames[i] == depvarname){
-      temprole <- "suggestedTarget"
-      depvarColIndex <- i
-      locatedDV <- TRUE
-    }else if (i==1){
-      temprole <- "index"
-    }else {
-      temprole <- "attribute"
-    }
+        if(allNames[i] == depvarname){
+            temprole <- "suggestedTarget"
+            depvarColIndex <- i-1
+            locatedDV <- TRUE
+        }else if (i==1){
+            temprole <- "index"
+        }else {
+            temprole <- "attribute"
+        }
     
-    # categorical (if non-numeric), real, or integer
-    if(!is.numeric(tempdata)){
-      temptype <- "categorical"
-    } else if(any(!(round(tempdata)==tempdata), na.rm=TRUE)){
-      temptype <- "real"
-    } else {
-      temptype <- "integer"
-    }
+        # categorical (if non-numeric), real, or integer
+        if(!is.numeric(tempdata)){
+            temptype <- "categorical"
+        } else if(any(!(round(tempdata)==tempdata), na.rm=TRUE)){
+            temptype <- "real"
+        } else {
+            temptype <- "integer"
+        }
     
-    temp <- list(colIndex=i-1, colName=allNames[i], colType=temptype, role=I(temprole))
-    columnlist[[i]]<- temp
-  }
+        temp <- list(colIndex=i-1, colName=allNames[i], colType=temptype, role=I(temprole))
+        columnlist[[i]]<- temp
+    }
 
+    if(!locatedDV){
+        print("No variable name in dataset matched supplied `depvarname` argument.")
+    }
 
-  if(!locatedDV){
-    print("No variable name in dataset matched supplied `depvarname` argument.")
-  }
-
-  dataResourcesList <- list(resID="0", resPath="tables/learningData.csv", resType="table", resFormat=I("text/csv"), isCollection=FALSE, columns=columnlist)
-
-  datasetID <- paste(ID,"_dataset",sep="")
-
-  datasetdoclist <- list(about=list(datasetID=name, datasetName=ID, description=description, citation=citation, datasetSchemaVersion= "3.0"), dataResources=list(dataResourcesList))
-  datasetDoc <- toJSON(datasetdoclist, auto_unbox=TRUE, pretty=TRUE)
-
+    # now overwriting with any new info passed or learned
+    dataDoc$dataResources$columns <- list(columnlist)
+    dataDoc$about$datasetID <- ID
+    dataDoc$about$datasetName <- name
+    dataDoc$about$description <- description
+    dataDoc$about$citation <- citation
+    dataDoc$dataResources$resFormat <- list(dataDoc$dataResources$resFormat) # this may vary based on how the json is read
 
   ## Write problemDoc json string
   
-  problemdoclist <- list(about=list(problemID=paste(name,"_problem",sep=""), problemName=ID, problemDescription=description, taskType=taskType, taskSubType=taskSubType, problemVersion="1.0", problemSchemaVersion="3.0"),
-    inputs=list(data=list(list(datasetID=datasetID, targets=list(list(colIndex=depvarColIndex, colName=depvarname)) )),
-    dataSplits=list(method="holdOut", testSize=fraction), performanceMetrics=list(list(metric=metric))),
-    expectedOutputs=list(predictionsFile="predictions.csv"))
-
+    # again assuming just one target
+    targets[[1]]$colIndex <- depvarColIndex
+    targets[[1]]$colName <- depvarname
+    
+    # overwriting with any new info passed or learned
+    
+    problemDoc$about$problemID <- paste(ID,"_problem",sep="")
+    problemDoc$about$problemName <- paste(name,"_problem",sep="")
+    problemDoc$about$taskType <- taskType
+    problemDoc$about$taskSubType <- taskSubType
+    problemDoc$inputs$data$targets<-targets
+    problemDoc$inputs$performanceMetrics <- metric
+    problemDoc$inputs$data$datasetID <- ID
+    
     # removing taskSubType if "remove"
-  if(problemdoclist$taskSubType=="remove") problemdoclist$taskSubType <- NULL
+  if(problemDoc$about$taskSubType=="remove") problemDoc$about$taskSubType <- NULL
 
-  problemDoc <- toJSON(problemdoclist, auto_unbox=TRUE, pretty=TRUE)
+# toJSON and out
+    dataDoc <- toJSON(dataDoc, auto_unbox=TRUE, pretty=TRUE)
+    problemDoc <- toJSON(problemDoc, auto_unbox=TRUE, pretty=TRUE)
   
-  out <- list(problemDoc=problemDoc, datasetDoc=datasetDoc)
+  out <- list(problemDoc=problemDoc, datasetDoc=dataDoc)
   return(out)
 }
+
+# dummy call
+#makeDocs(data=bbdata, name=dataname, ID=dataid, citation=citation, description=description, targets=targets, taskType=tasktype, taskSubType="remove", metric=performancemetrics, problemDoc=originalProblemDoc, dataDoc=originalDataDoc)
 
 
 mkdocs.app <- function(env) {
@@ -161,14 +162,31 @@ mkdocs.app <- function(env) {
         tasksubtype <- "remove" # optional, and will remove when writing problem doc
     }
     
-#depvarname: data.targets[...] from problem doc, can be more than one object
-#metric: performanceMetrics[...] from problem doc, can be more than one
+    originalProblemDoc <- everything$problemDoc
+    if (is.null(originalProblemDoc)) {
+        return(send(list(warning = "No problem doc."))) # required
+    }
+
+    originalDataDoc <- everything$datasetDoc
+    if (is.null(originalDataDoc)) {
+        return(send(list(warning = "No data doc."))) # required
+    }
+    
+    targets <- everything$targets
+    if (is.null(targets)) {
+        return(send(list(warning = "No target."))) # required
+    }
+    
+    performancemetrics <- everything$performanceMetrics
+    if (is.null(performancemetrics)) {
+        return(send(list(warning = "No performance metrics."))) # required
+    }
 
     separator <- if (endsWith(dataurl, 'csv'))',' else '\t'
     mydata <- read.table(dataurl, sep = separator, header = TRUE, fileEncoding = 'UTF-8')
 
     tryCatch({
-        docs <- seed_zombie(data=mydata, name=dataname, depvarname="war", ID=dataid, description=description, taskType=tasktype, taskSubType=tasksubtype, metric="f1Macro")
+        docs <- makeDocs(data=bbdata, name=dataname, ID=dataid, citation=citation, description=description, targets=targets, taskType=tasktype, taskSubType=tasksubtype, metric=performancemetrics, problemDoc=originalProblemDoc, dataDoc=originalDataDoc)
       },
     error = function(err) {
         result <<- list(warning = paste("error: ", err))
