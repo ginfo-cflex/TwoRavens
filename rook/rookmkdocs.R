@@ -162,6 +162,16 @@ mkdocs.app <- function(env) {
         tasksubtype <- "remove" # optional, and will remove when writing problem doc
     }
     
+    targets <- everything$targets
+    if (is.null(targets)) {
+        return(send(list(warning = "No target."))) # required
+    }
+    
+    performancemetrics <- everything$performanceMetrics
+    if (is.null(performancemetrics)) {
+        return(send(list(warning = "No performance metrics."))) # required
+    }
+    
     originalProblemDoc <- everything$problemDoc
     if (is.null(originalProblemDoc)) {
         return(send(list(warning = "No problem doc."))) # required
@@ -172,21 +182,13 @@ mkdocs.app <- function(env) {
         return(send(list(warning = "No data doc."))) # required
     }
     
-    targets <- everything$targets
-    if (is.null(targets)) {
-        return(send(list(warning = "No target."))) # required
-    }
     
-    performancemetrics <- everything$performanceMetrics
-    if (is.null(performancemetrics)) {
-        return(send(list(warning = "No performance metrics."))) # required
-    }
-
+    # reading in data
     separator <- if (endsWith(dataurl, 'csv'))',' else '\t'
     mydata <- read.table(dataurl, sep = separator, header = TRUE, fileEncoding = 'UTF-8')
 
     tryCatch({
-        docs <- makeDocs(data=bbdata, name=dataname, ID=dataid, citation=citation, description=description, targets=targets, taskType=tasktype, taskSubType=tasksubtype, metric=performancemetrics, problemDoc=originalProblemDoc, dataDoc=originalDataDoc)
+        docs <- makeDocs(data=mydata, name=dataname, ID=dataid, citation=citation, description=description, targets=targets, taskType=tasktype, taskSubType=tasksubtype, metric=performancemetrics, problemDoc=originalProblemDoc, dataDoc=originalDataDoc)
       },
     error = function(err) {
         result <<- list(warning = paste("error: ", err))
