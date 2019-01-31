@@ -28,12 +28,14 @@ is_binary <- function(v) {
 }
 
 
+
+
 makeDocs <- function(data, name, ID="", citation="", description="", targets=NULL, taskType=NULL, taskSubType=NULL, metric=NULL, problemDoc=NULL, dataDoc=NULL){
 
     n <- nrow(data)
     
     ## extract depvarname from targets, note this will only use the first
-    depvarname <- targets[[1]]$colName
+    depvarname <- targets$colName
   
     ## Write datasetDoc json string
 
@@ -42,8 +44,8 @@ makeDocs <- function(data, name, ID="", citation="", description="", targets=NUL
     locatedDV <- FALSE
 
     for(i in 1:ncol(data)){
- #   print(i)
- #   print(colnames(data)[i])
+    print(i)
+    print(colnames(data)[i])
         tempdata <- data[,i]
 
         if(allNames[i] == depvarname){
@@ -84,8 +86,8 @@ makeDocs <- function(data, name, ID="", citation="", description="", targets=NUL
   ## Write problemDoc json string
   
     # again assuming just one target
-    targets[[1]]$colIndex <- depvarColIndex
-    targets[[1]]$colName <- depvarname
+    targets$colIndex <- depvarColIndex
+    targets$colName <- depvarname
     
     # overwriting with any new info passed or learned
     
@@ -93,7 +95,7 @@ makeDocs <- function(data, name, ID="", citation="", description="", targets=NUL
     problemDoc$about$problemName <- paste(name,"_problem",sep="")
     problemDoc$about$taskType <- taskType
     problemDoc$about$taskSubType <- taskSubType
-    problemDoc$inputs$data$targets<-targets
+    problemDoc$inputs$data$targets<-list(targets)
     problemDoc$inputs$performanceMetrics <- metric
     problemDoc$inputs$data$datasetID <- ID
     
@@ -189,6 +191,7 @@ mkdocs.app <- function(env) {
 
     tryCatch({
         docs <- makeDocs(data=mydata, name=dataname, ID=dataid, citation=citation, description=description, targets=targets, taskType=tasktype, taskSubType=tasksubtype, metric=performancemetrics, problemDoc=originalProblemDoc, dataDoc=originalDataDoc)
+        result <- docs
       },
     error = function(err) {
         result <<- list(warning = paste("error: ", err))
