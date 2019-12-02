@@ -238,7 +238,7 @@ export class CanvasSolutions {
             }))
         }
 
-	if (problem.task.toLowerCase() === 'timeseriesforecasting') {
+	    if (problem.task.toLowerCase() === 'timeseriesforecasting') {
             let summaries = adapters.map(adapter => ({
                 name: adapter.getName(),
                 fittedValues: adapter.getFittedValues(resultsPreferences.target),
@@ -255,8 +255,6 @@ export class CanvasSolutions {
                 Object.assign(out, {[summary.name]: summary.actualValues}), {});
             let fittedYData = summaries.reduce((out, summary) =>
                 Object.assign(out, {[summary.name]: summary.fittedValues}), {});
-
-            window.testXData = xData
 
             let xName = resultsPreferences.predictor;
             let yName = 'Values';

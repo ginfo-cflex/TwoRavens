@@ -10,8 +10,6 @@ import * as queryMongo from "../manipulations/queryMongo";
 import {isKeyDefined} from "../utils";
 import Table from "../../common/views/Table";
 
-window.testResult = resultsData
-
 // functions to extract information from D3M response format
 export let getSolutionAdapter = (problem, solution) => ({
     getName: () => solution.pipelineId,
